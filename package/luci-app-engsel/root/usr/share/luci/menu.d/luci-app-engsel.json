@@ -1,0 +1,92 @@
+{
+	"admin/modem": {
+		"title": "Modem",
+		"order": 25,
+		"action": { "type": "firstchild" },
+		"depends": { "acl": [ "luci-app-engsel" ] }
+	},
+	"admin/modem/engsel": {
+		"title": "Engsel",
+		"order": 20,
+		"action": { "type": "firstchild", "preferred": "dashboard" },
+		"depends": { "acl": [ "luci-app-engsel" ] }
+	},
+	"admin/modem/engsel/dashboard": {
+		"title": "Dashboard",
+		"order": 1,
+		"action": { "type": "view", "path": "engsel/dashboard-segments" },
+		"depends": { "acl": [ "luci-app-engsel" ] }
+	},
+	"admin/modem/engsel/store": {
+		"title": "Store",
+		"order": 2,
+		"action": { "type": "firstchild", "preferred": "main" },
+		"depends": { "acl": [ "luci-app-engsel" ] }
+	},
+	"admin/modem/engsel/store/main": {
+		"title": "Main",
+		"order": 1,
+		"action": { "type": "view", "path": "engsel/store" },
+		"depends": { "acl": [ "luci-app-engsel" ] }
+	},
+	"admin/modem/engsel/store/point": {
+		"title": "Point",
+		"order": 2,
+		"action": { "type": "view", "path": "engsel/store" },
+		"depends": { "acl": [ "luci-app-engsel" ] }
+	},
+	"admin/modem/engsel/store/custom": {
+		"title": "Custom",
+		"order": 3,
+		"action": { "type": "firstchild", "preferred": "overview" },
+		"depends": { "acl": [ "luci-app-engsel" ] }
+	},
+	"admin/modem/engsel/store/custom/overview": {
+		"title": "Overview",
+		"order": 1,
+		"action": { "type": "view", "path": "engsel/store" },
+		"depends": { "acl": [ "luci-app-engsel" ] }
+	},
+	"admin/modem/engsel/store/custom/history": {
+		"title": "History",
+		"order": 2,
+		"action": { "type": "view", "path": "engsel/store" },
+		"depends": { "acl": [ "luci-app-engsel" ] }
+	},
+	"admin/modem/engsel/store/custom/family-list": {
+		"title": "Family List",
+		"order": 3,
+		"action": { "type": "view", "path": "engsel/store" },
+		"depends": { "acl": [ "luci-app-engsel" ] }
+	},
+	"admin/modem/engsel/store/bookmark": {
+		"title": "Bookmark",
+		"order": 4,
+		"action": { "type": "view", "path": "engsel/store" },
+		"depends": { "acl": [ "luci-app-engsel" ] }
+	},
+	"admin/modem/engsel/riwayat": {
+		"title": "Riwayat",
+		"order": 3,
+		"action": { "type": "firstchild", "preferred": "transaction-history" },
+		"depends": { "acl": [ "luci-app-engsel" ] }
+	},
+	"admin/modem/engsel/riwayat/transaction-history": {
+		"title": "Transaction History",
+		"order": 1,
+		"action": { "type": "view", "path": "engsel/riwayat-logs" },
+		"depends": { "acl": [ "luci-app-engsel" ] }
+	},
+	"admin/modem/engsel/riwayat/logs": {
+		"title": "Logs",
+		"order": 2,
+		"action": { "type": "view", "path": "engsel/riwayat-logs" },
+		"depends": { "acl": [ "luci-app-engsel" ] }
+	},
+	"admin/modem/engsel/settings": {
+		"title": "Settings",
+		"order": 4,
+		"action": { "type": "view", "path": "engsel/settings" },
+		"depends": { "acl": [ "luci-app-engsel" ] }
+	}
+}

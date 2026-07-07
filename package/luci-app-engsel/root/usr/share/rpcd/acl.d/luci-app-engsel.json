@@ -1,0 +1,41 @@
+{
+	"luci-app-engsel": {
+		"description": "Grant access to Engsel LuCI app",
+		"read": {
+			"cgi-io": [
+				"exec"
+			],
+			"file": {
+				"/usr/bin/engsel": [
+					"exec"
+				]
+			},
+			"ubus": {
+				"file": [
+					"exec"
+				]
+			},
+			"uci": [
+				"engsel"
+			]
+		},
+		"write": {
+			"cgi-io": [
+				"exec"
+			],
+			"file": {
+				"/usr/bin/engsel": [
+					"exec"
+				]
+			},
+			"ubus": {
+				"file": [
+					"exec"
+				]
+			},
+			"uci": [
+				"engsel"
+			]
+		}
+	}
+}

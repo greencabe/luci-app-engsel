@@ -1,0 +1,220 @@
+name: OpenWrt Packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      arch:
+        description: Target architecture
+        type: choice
+        default: all
+        options:
+          - all
+          - aarch64_generic
+          - aarch64_cortex-a53
+          - aarch64_cortex-a72
+          - arm_cortex-a7_neon-vfpv4
+          - arm_cortex-a7_vfpv4
+          - arm_cortex-a9_neon
+          - arm_cortex-a15_neon-vfpv4
+          - mipsel_24kc
+          - mips_24kc
+          - x86_64
+      package_format:
+        description: Package format
+        type: choice
+        default: all
+        options:
+          - all
+          - ipk
+          - apk
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.build_matrix.outputs.matrix }}
+    steps:
+      - name: Build matrix
+        id: build_matrix
+        run: |
+          set -euo pipefail
+          selected_arch="${{ inputs.arch || 'all' }}"
+          selected_format="${{ inputs.package_format || 'all' }}"
+          arches="aarch64_generic aarch64_cortex-a53 aarch64_cortex-a72 arm_cortex-a7_neon-vfpv4 arm_cortex-a7_vfpv4 arm_cortex-a9_neon arm_cortex-a15_neon-vfpv4 mipsel_24kc mips_24kc x86_64"
+          formats="ipk apk"
+          json='{"include":['
+          sep=''
+          for arch in $arches; do
+            [ "$selected_arch" = all ] || [ "$selected_arch" = "$arch" ] || continue
+            for format in $formats; do
+              [ "$selected_format" = all ] || [ "$selected_format" = "$format" ] || continue
+              case "$format" in
+                ipk) version="24.10.6" ;;
+                apk) version="25.12.4" ;;
+              esac
+              json="$json$sep{\"arch\":\"$arch\",\"openwrt_version\":\"$version\",\"package_format\":\"$format\"}"
+              sep=','
+            done
+          done
+          json="$json]}"
+          echo "matrix=$json" >> "$GITHUB_OUTPUT"
+          echo "$json"
+
+  build:
+    name: Build ${{ matrix.package_format }} / ${{ matrix.arch }}
+    needs: prepare
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create SDK build script
+        run: |
+          mkdir -p .github/openwrt-helper
+          cat > .github/openwrt-helper/build-engsel.sh <<'BUILDSCRIPT'
+          #!/bin/bash
+          set -euxo pipefail
+
+          cd /builder
+          [ -d ./scripts ] || ./setup.sh
+
+          rm -rf package/engsel package/luci-app-engsel /work/dist
+          mkdir -p package/engsel package/luci-app-engsel /work/dist
+
+          cp -a /work/src package/engsel/src
+          cp -a /work/package/openwrt/Makefile package/engsel/Makefile
+          cp -a /work/package/openwrt/files package/engsel/files
+          cp -a /work/package/luci-app-engsel/. package/luci-app-engsel/
+
+          for attempt in 1 2 3; do
+            if ./scripts/feeds update -a; then
+              break
+            fi
+            [ "$attempt" = 3 ] && exit 1
+            sleep $((attempt * 30))
+          done
+          for package in libmbedtls uclient-fetch ca-bundle luci-base rpcd rpcd-mod-file cgi-io; do
+            ./scripts/feeds install "$package" || true
+          done
+
+          cat >> .config <<'CFG'
+          CONFIG_ALL_NONSHARED=n
+          CONFIG_ALL_KMODS=n
+          CONFIG_ALL=n
+          CONFIG_AUTOREMOVE=n
+          CONFIG_PACKAGE_engsel=m
+          CONFIG_PACKAGE_luci-app-engsel=m
+          CFG
+          make defconfig
+
+          make package/engsel/compile package/luci-app-engsel/compile V=s -j"$(nproc)" || \
+            make package/engsel/compile package/luci-app-engsel/compile V=s -j1
+          make package/index || echo "package index generation failed; package artifacts remain usable"
+
+          find "bin/packages/${SDK_ARCH}" -type f \( \
+            -name "engsel_*.${PACKAGE_FORMAT}" -o \
+            -name "engsel-*.${PACKAGE_FORMAT}" -o \
+            -name "luci-app-engsel_*.${PACKAGE_FORMAT}" -o \
+            -name "luci-app-engsel-*.${PACKAGE_FORMAT}" -o \
+            -name "Packages" -o \
+            -name "Packages.gz" -o \
+            -name "Packages.manifest" -o \
+            -name "packages.adb" \
+          \) -exec cp -v {} /work/dist/ \;
+
+          test -n "$(find /work/dist -type f -name "*.${PACKAGE_FORMAT}" -print -quit)"
+          ls -la /work/dist/
+          BUILDSCRIPT
+          chmod +x .github/openwrt-helper/build-engsel.sh
+
+      - name: Build in OpenWrt SDK
+        run: |
+          set -euxo pipefail
+          SDK_ARCH="${{ matrix.arch }}"
+          OPENWRT_VERSION="${{ matrix.openwrt_version }}"
+          PACKAGE_FORMAT="${{ matrix.package_format }}"
+          SDK_IMAGE="openwrt/sdk:${SDK_ARCH}-${OPENWRT_VERSION}"
+          for attempt in 1 2 3; do
+            if docker pull "${SDK_IMAGE}"; then
+              break
+            fi
+            [ "$attempt" = 3 ] && exit 1
+            sleep $((attempt * 20))
+          done
+          docker run --rm \
+            --user root \
+            -e SDK_ARCH="${SDK_ARCH}" \
+            -e PACKAGE_FORMAT="${PACKAGE_FORMAT}" \
+            -v "${GITHUB_WORKSPACE}:/work" \
+            -w /builder \
+            "${SDK_IMAGE}" \
+            /bin/bash /work/.github/openwrt-helper/build-engsel.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: engsel-${{ matrix.arch }}-${{ matrix.package_format }}
+          path: dist/*
+          retention-days: 7
+
+  release:
+    name: Publish release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Install release tools
+        run: sudo apt-get update && sudo apt-get install -y zip
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release assets
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          for dir in artifacts/engsel-*; do
+            [ -d "$dir" ] || continue
+            base="$(basename "$dir")"
+            suffix="${base#engsel-}"
+            package_format="${suffix##*-}"
+            arch="${suffix%-${package_format}}"
+            case "$package_format" in
+              ipk) openwrt_major="openwrt24" ;;
+              apk) openwrt_major="openwrt25" ;;
+              *) openwrt_major="openwrt" ;;
+            esac
+            zip_name="luci-app-engsel-${arch}-${openwrt_major}.${package_format}.zip"
+            (cd "$dir" && zip -r "${GITHUB_WORKSPACE}/release-assets/${zip_name}" .)
+          done
+          cat > release-notes.md <<'NOTES'
+          # luci-app-engsel
+
+          `luci-app-engsel` is the main package for LuCI users and is listed first in this release. It depends on the `engsel` native backend package, which is included in each architecture archive.
+
+          ## Packages
+
+          1. `luci-app-engsel`: LuCI frontend at `Modem > Engsel`.
+          2. `engsel`: native C backend and CLI.
+
+          ## Build Matrix
+
+          - OpenWrt 24.10.6: IPK
+          - OpenWrt 25.12.4: APK
+          - Architectures: aarch64_generic, aarch64_cortex-a53, aarch64_cortex-a72, arm_cortex-a7_neon-vfpv4, arm_cortex-a7_vfpv4, arm_cortex-a9_neon, arm_cortex-a15_neon-vfpv4, mipsel_24kc, mips_24kc, x86_64
+          NOTES
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2.2.2
+        with:
+          body_path: release-notes.md
+          files: release-assets/*

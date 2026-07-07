@@ -1,0 +1,30 @@
+#!/bin/sh
+REAL=/usr/libexec/engsel/engsel
+ENV=/etc/engsel/.env
+KEYS="BASE_API_URL BASE_CIAM_URL BASIC_AUTH AX_FP_KEY UA API_KEY ENCRYPTED_FIELD_KEY XDATA_KEY AX_API_SIG_KEY X_API_BASE_SECRET DECOY_PREPAID_OPTION_CODE DECOY_PRIORITAS_OPTION_CODE DECOY_PRIOHYBRID_OPTION_CODE DECOY_BALANCE_OPTION_CODE"
+
+if command -v uci >/dev/null 2>&1 && uci -q get engsel.config >/dev/null 2>&1; then
+	umask 077
+	mkdir -p /etc/engsel
+	tmp="$ENV.$$"
+	wrote=0
+	{
+		for key in $KEYS; do
+			value="$(uci -q get engsel.config.$key)"
+			[ -n "$value" ] || continue
+			printf '%s=%s\n' "$key" "$value"
+			wrote=$((wrote + 1))
+		done
+	} > "$tmp"
+	if [ "$wrote" -gt 0 ]; then
+		mv "$tmp" "$ENV"
+		export ENGSEL_ENV="$ENV"
+	else
+		rm -f "$tmp"
+		[ -f "$ENV" ] && export ENGSEL_ENV="$ENV"
+	fi
+elif [ -f "$ENV" ]; then
+	export ENGSEL_ENV="$ENV"
+fi
+
+exec "$REAL" "$@"
