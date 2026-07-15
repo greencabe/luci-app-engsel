@@ -83,9 +83,15 @@
 		"action": { "type": "view", "path": "engsel/riwayat-logs" },
 		"depends": { "acl": [ "luci-app-engsel" ] }
 	},
+	"admin/modem/engsel/notifikasi": {
+		"title": "Notifikasi",
+		"order": 4,
+		"action": { "type": "view", "path": "engsel/notifikasi" },
+		"depends": { "acl": [ "luci-app-engsel" ] }
+	},
 	"admin/modem/engsel/settings": {
 		"title": "Settings",
-		"order": 4,
+		"order": 5,
 		"action": { "type": "view", "path": "engsel/settings" },
 		"depends": { "acl": [ "luci-app-engsel" ] }
 	}

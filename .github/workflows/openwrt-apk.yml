@@ -56,7 +56,7 @@ jobs:
               [ "$selected_format" = all ] || [ "$selected_format" = "$format" ] || continue
               case "$format" in
                 ipk) version="24.10.6" ;;
-                apk) version="25.12.4" ;;
+                apk) version="25.12.5" ;;
               esac
               json="$json$sep{\"arch\":\"$arch\",\"openwrt_version\":\"$version\",\"package_format\":\"$format\"}"
               sep=','
@@ -102,7 +102,7 @@ jobs:
             [ "$attempt" = 3 ] && exit 1
             sleep $((attempt * 30))
           done
-          for package in libmbedtls uclient-fetch ca-bundle luci-base rpcd rpcd-mod-file cgi-io; do
+          for package in libmbedtls ca-bundle curl luci-base rpcd rpcd-mod-file cgi-io; do
             ./scripts/feeds install "$package" || true
           done
 
@@ -209,7 +209,7 @@ jobs:
           ## Build Matrix
 
           - OpenWrt 24.10.6: IPK
-          - OpenWrt 25.12.4: APK
+          - OpenWrt 25.12.5: APK
           - Architectures: aarch64_generic, aarch64_cortex-a53, aarch64_cortex-a72, arm_cortex-a7_neon-vfpv4, arm_cortex-a7_vfpv4, arm_cortex-a9_neon, arm_cortex-a15_neon-vfpv4, mipsel_24kc, mips_24kc, x86_64
           NOTES
 
