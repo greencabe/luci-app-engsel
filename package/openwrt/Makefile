@@ -15,7 +15,7 @@ define Package/engsel
   CATEGORY:=Utilities
   TITLE:=Native MyXL CLI backend for OpenWrt
   URL:=https://github.com/greencabe/luci-app-engsel
-  DEPENDS:=+libmbedtls +uclient-fetch +ca-bundle
+  DEPENDS:=+libmbedtls +uclient-fetch +ca-bundle +curl
 endef
 
 define Package/engsel/description
